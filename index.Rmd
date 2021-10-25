@@ -17,13 +17,14 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-# パッケージ読み込み
+# 準備
+## パッケージ読み込み
 ```{r}
 library(tidyverse)
 library(quanteda)
 ```
 
-# 参考
+## 参考
 * [クイック・スタートガイド](https://quanteda.io/articles/pkgdown/quickstart_ja.html)
 * [quanteda tutorials](https://tutorials.quanteda.io/multilingual/japanese/)
 * [経済学における量的テキスト分析入門](https://github.com/koheiw/workshop-JEAT)
@@ -33,7 +34,7 @@ library(quanteda)
 # 大きな文章を読み込んで分割
 ## 読み込み
 
-* 太宰治[『女生徒』]　青空文庫 (https://www.aozora.gr.jp/cards/000035/card275.html)
+* 太宰治[『女生徒』](https://www.aozora.gr.jp/cards/000035/card275.html)青空文庫
 
 ```{r}
 # 1行ごと読み込む関数だが，青空文庫の仕様上，段落（１行？）ごとに読み込み？
@@ -79,7 +80,7 @@ dat_txt[1]
 ```
 
 
-## コーパス化
+# コーパス化
 ```{r}
 corp_dat <- 
   corpus(dat_txt)
@@ -90,13 +91,13 @@ corp_dat %>% head()
 summary(corp_dat, 5)
 ```
 
-### 文ごとに変換
+## 文ごとに変換
 ```{r}
 corpus_reshape(corp_dat, to = "sentences") %>% 
 summary(5)
 ```
 
-### タグ付けでデータフレームに抽出
+## タグ付けでデータフレームに抽出
 ```{r}
 corp_tagged <- corpus(c(
   # text1
@@ -114,11 +115,11 @@ cbind(docvars(corp_sect), text = as.character(corp_sect))
 
 
 
+# トークン化
 
+* version 3以降は，コーパス内検索するのもdfm化するのもまずトークン化が必須に
 
-
-## トークン化
-### 基本の例
+## 基本の例
 ```{r}
 txt <- c(text1 = "あさ、眼をさますときの気持は、面白い。",
          text2 = "朝は灰色。いつもいつも同じ。",
@@ -127,15 +128,189 @@ txt <- c(text1 = "あさ、眼をさますときの気持は、面白い。",
 tokens(txt)
 ```
 
-#### 句読点などを削除
+### 句読点などを削除
 ```{r}
 tokens(txt, remove_punct = TRUE, remove_numbers = TRUE)
 ```
 
-## 文書行列（dfm）
+## コーパスのトークン化
+```{r}
+tok_dat <- 
+tokens(corp_dat, remove_punct = TRUE)
+
+tok_dat %>% head()
+```
+
+## 精緻なトークン化
+### 共起関係把握
+```{r}
+library(quanteda.textstats)
+
+# 全体
+textstat_collocations(corp_dat) %>% head(10)
 
 
-### （不使用）文単位に分割
+
+
+min_count = 2 # 2回以上登場
+
+# 漢字のみ
+kanji_col <- tokens_select(tok_dat, "^[一-龠]+$", valuetype = "regex", padding = TRUE) %>% 
+             textstat_collocations() # min_count = min_count
+kanji_col
+
+tok_dat <- tokens_compound(tok_dat, kanji_col[kanji_col$z > 3,], concatenator = "")
+
+
+# カタカナのみ
+kana_col <- tokens_select(tok_dat, "^[ァ-ヶー]+$", valuetype = "regex", padding = TRUE) %>% 
+            textstat_collocations()
+kana_col
+
+tok_dat <- 
+tokens_compound(tok_dat, kana_col[kana_col$z > 3,], concatenator = "")
+
+
+# 漢字とカタカナと数字
+any_col <- 
+tokens_select(tok_dat, "^[０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) %>% 
+           textstat_collocations()
+
+tok_dat <- 
+tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
+
+
+# ひらがなのみ
+hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
+            textstat_collocations(min_count = 10)
+hira_col %>% head()
+
+# corp_dat <- 
+# tokens_compound(corp_dat, kana_col[kana_col$z > 3,], concatenator = "")
+
+```
+
+### 指定した語をくっつける
+```{r}
+
+jisho <- 
+  list(keys1 = c("あ", "さ"),
+       keys2 = c("さ", "ます"))
+
+tokens_compound(tok_dat, jisho,  concatenator = "") %>%
+  head(1)
+
+```
+
+
+## 検索
+```{r}
+kwic(tok_dat, pattern = "眼鏡")
+kwic(tok_dat, pattern = "小さい")
+
+```
+
+
+
+# 文書行列（dfm）
+
+* dfm:document-feature matrix
+* 行が文書（document），列が特長（feature）となる行列
+
+```{r}
+dfm_dat <- 
+dfm(tok_dat)
+
+dfm_dat
+```
+
+## 頻度の確認
+```{r}
+# top20
+topfeatures(dfm_dat, 10)
+
+# 下位20
+topfeatures(dfm_dat, decreasing = FALSE, 10)
+
+```
+
+
+### 頻度が低い語と高い語を削除
+```{r}
+dfm_dat <- 
+  dfm_dat %>% 
+  dfm_remove("^[ぁ-ん]+$", valuetype = "regex", min_nchar = 2) %>%
+  dfm_trim(min_termfreq = 0.50, termfreq_type = "quantile", max_termfreq = 0.99)
+
+# top20
+topfeatures(dfm_dat, 10)
+
+# 下位20
+topfeatures(dfm_dat, decreasing = FALSE, 10)
+```
+
+
+# 分析
+## 相対頻度
+
+* 眼鏡は？
+
+```{r}
+key <- textstat_keyness(dfm_dat)
+
+head(key, 20)
+```
+
+## ワードクラウド
+```{r}
+
+```
+
+
+## 共起ネットワーク
+```{r}
+library("quanteda.textplots")
+
+feat <- head(key$feature, 30)
+
+dfm_fcm <- 
+  dfm_select(dfm_dat, feat) %>% 
+  fcm()
+
+size <- 
+  sqrt(rowSums(dfm_fcm))
+
+textplot_network(dfm_fcm, min_freq = 0.85, edge_alpha = 0.9, 
+                 vertex_size = size / max(size) * 3,
+                 vertex_labelfont = if (Sys.info()["sysname"] == "Darwin") "SimHei" else NULL)
+```
+
+## トピックモデル
+```{r eval=FALSE, include=FALSE}
+library(topicmodels)
+
+set.seed(100)
+lda <- LDA(convert(dfm_fcm, to = "topicmodels"), k = 10)
+
+# 表示
+get_terms(lda, 10) %>% knitr::kable()
+
+# LDA_fit_10 <- convert(dfm_fcm, to = "topicmodels") %>% 
+#     LDA(k = 10)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## （不使用）文単位に分割
 ```{r eval=FALSE, include=FALSE}
 # 文単位に分割
 dat_txt_sent <- 
