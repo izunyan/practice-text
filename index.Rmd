@@ -180,7 +180,7 @@ tok_dat <-
 tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
 
 
-# ひらがなのみ
+# ひらがなのみ（反映せず）
 hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
             textstat_collocations(min_count = 10)
 hira_col %>% head()
@@ -207,6 +207,7 @@ tokens_compound(tok_dat, jisho,  concatenator = "") %>%
 ```{r}
 kwic(tok_dat, pattern = "眼鏡")
 kwic(tok_dat, pattern = "小さい")
+kwic(tok_dat, pattern = "植木屋")
 
 ```
 
@@ -236,53 +237,75 @@ topfeatures(dfm_dat, decreasing = FALSE, 10)
 
 
 ### 頻度が低い語と高い語を削除
-```{r}
-dfm_dat <- 
-  dfm_dat %>% 
-  dfm_remove("^[ぁ-ん]+$", valuetype = "regex", min_nchar = 2) %>%
-  dfm_trim(min_termfreq = 0.50, termfreq_type = "quantile", max_termfreq = 0.99)
 
-# top20
-topfeatures(dfm_dat, 10)
+* ひらがなのみは`"^[ぁ-ん]+$"`
+
+```{r}
+dfm_dat_s <- 
+  dfm_dat %>% 
+  dfm_remove("^[ぁ-ん]{1,4}$", valuetype = "regex", # ひらがな1～4字は削除
+              min_nchar = 2,      # 2字未満は削除
+             verbose = TRUE) %>% # 除去したfeature数を表示
+  dfm_trim(min_termfreq = 0.50,  
+           termfreq_type = "quantile", 
+           max_termfreq = 0.99)
+
+# 上位20
+topfeatures(dfm_dat_s, 10)
 
 # 下位20
-topfeatures(dfm_dat, decreasing = FALSE, 10)
+topfeatures(dfm_dat_s, decreasing = FALSE, 10)
 ```
 
 
 # 分析
 ## 相対頻度
 
-* 眼鏡は？
+* デフォルトでは'target = 1L'となっているので，text1を分析するようになっている
 
 ```{r}
-key <- textstat_keyness(dfm_dat)
+textstat_keyness(dfm_dat_s) %>% 
+head(20)
 
-head(key, 20)
+
+textstat_keyness(dfm_dat_s, target = 14L) %>% 
+head(20)
+
 ```
 
 ## ワードクラウド
 ```{r}
+library(quanteda.textplots)
 
+set.seed(123)
+textplot_wordcloud(dfm_dat_s,
+                   random_order = FALSE,
+                   rotation = .25,
+                   color = RColorBrewer::brewer.pal(8, "Dark2"))
 ```
 
 
 ## 共起ネットワーク
 ```{r}
-library("quanteda.textplots")
 
-feat <- head(key$feature, 30)
 
-dfm_fcm <- 
-  dfm_select(dfm_dat, feat) %>% 
-  fcm()
 
-size <- 
-  sqrt(rowSums(dfm_fcm))
+dfm_fcm <- fcm(dfm_dat_s)
+feat <- names(topfeatures(dfm_fcm, 100))
+dfm_dat_col <- fcm_select(dfm_fcm, feat)
+textplot_network(dfm_dat_col, min_freq = 0.95, edge_size = 5)
 
-textplot_network(dfm_fcm, min_freq = 0.85, edge_alpha = 0.9, 
-                 vertex_size = size / max(size) * 3,
-                 vertex_labelfont = if (Sys.info()["sysname"] == "Darwin") "SimHei" else NULL)
+
+# dfm_fcm <- 
+#   dfm_select(dfm_dat, feat) %>% 
+#   fcm()
+# 
+# size <- 
+#   sqrt(rowSums(dfm_fcm))
+# 
+# textplot_network(dfm_fcm, min_freq = 0.85, edge_alpha = 0.9, 
+#                  vertex_size = size / max(size) * 3,
+#                  vertex_labelfont = if (Sys.info()["sysname"] == "Darwin") "SimHei" else NULL)
 ```
 
 ## トピックモデル
