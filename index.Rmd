@@ -29,6 +29,13 @@ library(quanteda)
 * [quanteda tutorials](https://tutorials.quanteda.io/multilingual/japanese/)
 * [経済学における量的テキスト分析入門](https://github.com/koheiw/workshop-JEAT)
 * [Rによる日本語のテキスト分析入門](https://github.com/koheiw/workshop-IJTA)
+* [フリーソフトによるデータ解析・マイニング](https://www.cis.doshisha.ac.jp/mjin/R/index.html)
+
+## 用語
+
+* 形態素 morpheme
+* 形態素解析 morphological analysis
+
 
 
 # 大きな文章を読み込んで分割
@@ -176,14 +183,25 @@ any_col <-
 tokens_select(tok_dat, "^[０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) %>% 
            textstat_collocations()
 
+any_col
+
 tok_dat <- 
 tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
 
+# 漢字とひらがな
+# kanhira_col <- 
+#   tokens_select(tok_dat, "^[一-龠ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
+#            textstat_collocations()
+# 
+# kanhira_col
 
 # ひらがなのみ（反映せず）
-hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
-            textstat_collocations(min_count = 10)
-hira_col %>% head()
+# hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
+#             textstat_collocations(min_count = 10)
+# hira_col %>% head()
+
+# 多い順
+# kanhira_col %>% arrange(desc(count))
 
 # corp_dat <- 
 # tokens_compound(corp_dat, kana_col[kana_col$z > 3,], concatenator = "")
@@ -195,10 +213,18 @@ hira_col %>% head()
 
 jisho <- 
   list(keys1 = c("あ", "さ"),
-       keys2 = c("さ", "ます"))
+       keys2 = c("さ", "ます")
+)
 
 tokens_compound(tok_dat, jisho,  concatenator = "") %>%
   head(1)
+
+# 他の候補
+       # keys3 = c("私", "たち"),
+       # keys4 = c("笑", "って"),
+       # keys5 = c("読", "んで"),
+       # keys6 = c("黙", "って"),
+       # keys7 = c("新", "ちゃん")
 
 ```
 
@@ -209,6 +235,16 @@ kwic(tok_dat, pattern = "眼鏡")
 kwic(tok_dat, pattern = "小さい")
 kwic(tok_dat, pattern = "植木屋")
 
+```
+
+## stopwords
+
+https://tutorials.quanteda.io/multilingual/japanese/
+
+```{r}
+tok_dat <- 
+  tok_dat %>% 
+  tokens_remove(pattern = stopwords("ja", source = "marimo"), verbose = TRUE)
 ```
 
 
@@ -245,17 +281,79 @@ dfm_dat_s <-
   dfm_dat %>% 
   dfm_remove("^[ぁ-ん]{1,4}$", valuetype = "regex", # ひらがな1～4字は削除
               min_nchar = 2,      # 2字未満は削除
-             verbose = TRUE) %>% # 除去したfeature数を表示
-  dfm_trim(min_termfreq = 0.50,  
-           termfreq_type = "quantile", 
-           max_termfreq = 0.99)
+              verbose = TRUE) # %>% # 除去したfeature数を表示
+  # dfm_trim(min_termfreq = 0.50,  
+  #          termfreq_type = "quantile", 
+  #          max_termfreq = 0.99)
 
 # 上位20
 topfeatures(dfm_dat_s, 10)
 
 # 下位20
 topfeatures(dfm_dat_s, decreasing = FALSE, 10)
+
+# 頻度が多い単語も除去
+dfm_dat_s2 <- 
+  dfm_dat_s %>% 
+  dfm_trim(min_termfreq = 0.50,
+           termfreq_type = "quantile",
+           max_termfreq = 0.995)
+
 ```
+
+
+```{r}
+# 10回以上, 2以上のdocumentsで登場
+dfm_dat_s %>% 
+  dfm_trim(min_termfreq = 10, 
+           min_docfreq = 2, 
+           verbose = TRUE) %>% 
+  topfeatures(30)
+
+# 10回以下，2以下のdocumantsで登場（局所的）
+dfm_dat_s %>% 
+  dfm_trim(max_termfreq = 10, 
+           max_docfreq = 2, 
+           verbose = TRUE) %>% 
+  topfeatures(30)
+
+
+# 5回以上, 40%以上のdocumentsで登場
+# dfm_dat_s %>% 
+#   dfm_trim(min_termfreq = 5, 
+#            min_docfreq = 0.4,
+#            verbose = TRUE) %>% 
+#   topfeatures(30)
+
+
+
+
+
+
+dfm_dat_s %>% 
+   dfm_trim(min_termfreq = 0.50,        # top 50%?
+            termfreq_type = "quantile", 
+            max_termfreq = 0.99, # 下位99%　→　top1%は除く
+            verbose = TRUE) %>%    
+  topfeatures(10)
+
+
+# 除去される語はなし？
+dfm_dat_s %>% 
+   dfm_trim(min_termfreq = 0.50,  
+            termfreq_type = "quantile",
+            verbose = TRUE) %>% 
+  topfeatures(10)
+
+dfm_dat_s %>% 
+   dfm_trim(max_termfreq = 0.99,  
+            termfreq_type = "quantile",
+            verbose = TRUE) %>% 
+  topfeatures(10)
+ 
+
+```
+
 
 
 # 分析
@@ -274,6 +372,7 @@ head(20)
 ```
 
 ## ワードクラウド
+### 頻度の制限なし
 ```{r}
 library(quanteda.textplots)
 
@@ -281,11 +380,28 @@ set.seed(123)
 textplot_wordcloud(dfm_dat_s,
                    random_order = FALSE,
                    rotation = .25,
+                   min_count = 5,
+                   min_size = 1,
+                   max_size = 5,
+                   color = RColorBrewer::brewer.pal(8, "Dark2"))
+```
+
+### 高頻度語を除去
+```{r}
+
+set.seed(123)
+textplot_wordcloud(dfm_dat_s2,
+                   random_order = FALSE,
+                   rotation = .25,
+                   min_count = 5,
+                   min_size = 1,
+                   max_size = 5,
                    color = RColorBrewer::brewer.pal(8, "Dark2"))
 ```
 
 
 ## 共起ネットワーク
+### 頻度の制限なし
 ```{r}
 
 
@@ -307,6 +423,15 @@ textplot_network(dfm_dat_col, min_freq = 0.95, edge_size = 5)
 #                  vertex_size = size / max(size) * 3,
 #                  vertex_labelfont = if (Sys.info()["sysname"] == "Darwin") "SimHei" else NULL)
 ```
+
+### 高頻度語を除去
+```{r}
+dfm_fcm2 <- fcm(dfm_dat_s2)
+feat2 <- names(topfeatures(dfm_fcm2, 100))
+dfm_dat_col2 <- fcm_select(dfm_fcm2, feat2)
+textplot_network(dfm_dat_col2, min_freq = 0.95, edge_size = 5)
+```
+
 
 ## トピックモデル
 ```{r eval=FALSE, include=FALSE}
