@@ -1,6 +1,6 @@
 ---
 title: "practice_text"
-author: ""
+author: "やわらかクジラ"
 date: "`r format(Sys.time(), '%Y/%m/%d')`"
 output:
   html_document: 
@@ -17,14 +17,11 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-# 準備
-## パッケージ読み込み
-```{r}
-library(tidyverse)
-library(quanteda)
-```
+# 参考
+## 全般
+* [Text Mining with R: A Tidy Approach (Julia Silge and David Robinson)](https://www.tidytextmining.com/index.html)
 
-## 参考
+## quanteda
 * [クイック・スタートガイド](https://quanteda.io/articles/pkgdown/quickstart_ja.html)
 * [quanteda tutorials](https://tutorials.quanteda.io/multilingual/japanese/)
 * [経済学における量的テキスト分析入門](https://github.com/koheiw/workshop-JEAT)
@@ -35,34 +32,46 @@ library(quanteda)
 
 * 形態素 morpheme
 * 形態素解析 morphological analysis
+* 分かち書き word segmentation
+
+# 準備
+## パッケージ読み込み
+```{r}
+library(tidyverse)
+library(quanteda)
+```
 
 
+<!-- # テキストデータ基本 -->
+<!-- ##  -->
 
 # 大きな文章を読み込んで分割
 ## 読み込み
 
 * 太宰治[『女生徒』](https://www.aozora.gr.jp/cards/000035/card275.html)青空文庫
+* ここではダウンロードして回答したフォルダ`275_ruby_1532`をdataフォルダの中に置く
 
 ```{r}
 # 1行ごと読み込む関数だが，青空文庫の仕様上，段落（１行？）ごとに読み込み？
-dat_txt <- 
-readLines("data/275_ruby_1532/joseito.txt")
+dat_txt <-
+  readr::read_lines("data/275_ruby_1532/joseito.txt", 
+                    locale = locale(encoding = "cp932"))
 
-dat_txt %>%
+dat_txt |>
   head(20)
 
 # 文章開始までの部分を削除
 dat_txt <- 
   dat_txt[-(1:17)]
 
-dat_txt %>%
+dat_txt |>
   tail(20)
 
 # 文章最終文の後の部分を削除
 dat_txt <- 
   dat_txt[-(96:107)]
 
-dat_txt %>%
+dat_txt |>
   tail()  
 
  # dat_txt <- readtext::readtext("data/275_ruby_1532/joseito.txt", cache = FALSE)
@@ -79,7 +88,7 @@ dat_txt %>%
 dat_txt[1]
 
 dat_txt <- 
-  dat_txt %>% 
+  dat_txt |> 
   str_remove_all("《[^》]+》")
 
 # 除去後
@@ -92,7 +101,7 @@ dat_txt[1]
 corp_dat <- 
   corpus(dat_txt)
 
-corp_dat %>% head()
+corp_dat |> head()
 
 # 5つ目までのsummary
 summary(corp_dat, 5)
@@ -100,7 +109,7 @@ summary(corp_dat, 5)
 
 ## 文ごとに変換
 ```{r}
-corpus_reshape(corp_dat, to = "sentences") %>% 
+corpus_reshape(corp_dat, to = "sentences") |> 
 summary(5)
 ```
 
@@ -123,7 +132,7 @@ cbind(docvars(corp_sect), text = as.character(corp_sect))
 
 
 # トークン化
-
+* すでに各行に文章が入っているデータフレームはここから
 * version 3以降は，コーパス内検索するのもdfm化するのもまずトークン化が必須に
 
 ## 基本の例
@@ -145,7 +154,7 @@ tokens(txt, remove_punct = TRUE, remove_numbers = TRUE)
 tok_dat <- 
 tokens(corp_dat, remove_punct = TRUE)
 
-tok_dat %>% head()
+tok_dat |> head()
 ```
 
 ## 精緻なトークン化
@@ -154,7 +163,7 @@ tok_dat %>% head()
 library(quanteda.textstats)
 
 # 全体
-textstat_collocations(corp_dat) %>% head(10)
+textstat_collocations(corp_dat) |> head(10)
 
 
 
@@ -162,7 +171,7 @@ textstat_collocations(corp_dat) %>% head(10)
 min_count = 2 # 2回以上登場
 
 # 漢字のみ
-kanji_col <- tokens_select(tok_dat, "^[一-龠]+$", valuetype = "regex", padding = TRUE) %>% 
+kanji_col <- tokens_select(tok_dat, "^[一-龠]+$", valuetype = "regex", padding = TRUE) |> 
              textstat_collocations() # min_count = min_count
 kanji_col
 
@@ -170,7 +179,7 @@ tok_dat <- tokens_compound(tok_dat, kanji_col[kanji_col$z > 3,], concatenator = 
 
 
 # カタカナのみ
-kana_col <- tokens_select(tok_dat, "^[ァ-ヶー]+$", valuetype = "regex", padding = TRUE) %>% 
+kana_col <- tokens_select(tok_dat, "^[ァ-ヶー]+$", valuetype = "regex", padding = TRUE) |> 
             textstat_collocations()
 kana_col
 
@@ -180,7 +189,7 @@ tokens_compound(tok_dat, kana_col[kana_col$z > 3,], concatenator = "")
 
 # 漢字とカタカナと数字
 any_col <- 
-tokens_select(tok_dat, "^[０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) %>% 
+tokens_select(tok_dat, "^[０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) |> 
            textstat_collocations()
 
 any_col
@@ -190,18 +199,18 @@ tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
 
 # 漢字とひらがな
 # kanhira_col <- 
-#   tokens_select(tok_dat, "^[一-龠ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
+#   tokens_select(tok_dat, "^[一-龠ぁ-ん]+$", valuetype = "regex", padding = TRUE) |> 
 #            textstat_collocations()
 # 
 # kanhira_col
 
 # ひらがなのみ（反映せず）
-# hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) %>% 
+# hira_col <- tokens_select(tok_dat, "^[ぁ-ん]+$", valuetype = "regex", padding = TRUE) |> 
 #             textstat_collocations(min_count = 10)
-# hira_col %>% head()
+# hira_col |> head()
 
 # 多い順
-# kanhira_col %>% arrange(desc(count))
+# kanhira_col |> arrange(desc(count))
 
 # corp_dat <- 
 # tokens_compound(corp_dat, kana_col[kana_col$z > 3,], concatenator = "")
@@ -209,22 +218,24 @@ tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
 ```
 
 ### 指定した語をくっつける
-```{r}
+
+* [ドキュメント](https://quanteda.io/reference/tokens_compound.html)やヘルプのexample参照
+
+```{tokens_compound r}
 
 jisho <- 
-  list(keys1 = c("あ", "さ"),
-       keys2 = c("さ", "ます")
-)
+  list(c("あ", "さ"),
+       c("さ", "ます"))
 
-tokens_compound(tok_dat, jisho,  concatenator = "") %>%
+tokens_compound(tok_dat, jisho,  concatenator = "") |>
   head(1)
 
 # 他の候補
-       # keys3 = c("私", "たち"),
-       # keys4 = c("笑", "って"),
-       # keys5 = c("読", "んで"),
-       # keys6 = c("黙", "って"),
-       # keys7 = c("新", "ちゃん")
+       # c("私", "たち"),
+       # c("笑", "って"),
+       # c("読", "んで"),
+       # c("黙", "って"),
+       # |> c("新", "ちゃん")
 
 ```
 
@@ -243,7 +254,7 @@ https://tutorials.quanteda.io/multilingual/japanese/
 
 ```{r}
 tok_dat <- 
-  tok_dat %>% 
+  tok_dat |> 
   tokens_remove(pattern = stopwords("ja", source = "marimo"), verbose = TRUE)
 ```
 
@@ -278,10 +289,10 @@ topfeatures(dfm_dat, decreasing = FALSE, 10)
 
 ```{r}
 dfm_dat_s <- 
-  dfm_dat %>% 
+  dfm_dat |> 
   dfm_remove("^[ぁ-ん]{1,4}$", valuetype = "regex", # ひらがな1～4字は削除
               min_nchar = 2,      # 2字未満は削除
-              verbose = TRUE) # %>% # 除去したfeature数を表示
+              verbose = TRUE) # |> # 除去したfeature数を表示
   # dfm_trim(min_termfreq = 0.50,  
   #          termfreq_type = "quantile", 
   #          max_termfreq = 0.99)
@@ -294,7 +305,7 @@ topfeatures(dfm_dat_s, decreasing = FALSE, 10)
 
 # 頻度が多い単語も除去
 dfm_dat_s2 <- 
-  dfm_dat_s %>% 
+  dfm_dat_s |> 
   dfm_trim(min_termfreq = 0.50,
            termfreq_type = "quantile",
            max_termfreq = 0.995)
@@ -304,25 +315,25 @@ dfm_dat_s2 <-
 
 ```{r}
 # 10回以上, 2以上のdocumentsで登場
-dfm_dat_s %>% 
+dfm_dat_s |> 
   dfm_trim(min_termfreq = 10, 
            min_docfreq = 2, 
-           verbose = TRUE) %>% 
+           verbose = TRUE) |> 
   topfeatures(30)
 
 # 10回以下，2以下のdocumantsで登場（局所的）
-dfm_dat_s %>% 
+dfm_dat_s |> 
   dfm_trim(max_termfreq = 10, 
            max_docfreq = 2, 
-           verbose = TRUE) %>% 
+           verbose = TRUE) |> 
   topfeatures(30)
 
 
 # 5回以上, 40%以上のdocumentsで登場
-# dfm_dat_s %>% 
+# dfm_dat_s |> 
 #   dfm_trim(min_termfreq = 5, 
 #            min_docfreq = 0.4,
-#            verbose = TRUE) %>% 
+#            verbose = TRUE) |> 
 #   topfeatures(30)
 
 
@@ -330,25 +341,25 @@ dfm_dat_s %>%
 
 
 
-dfm_dat_s %>% 
+dfm_dat_s |> 
    dfm_trim(min_termfreq = 0.50,        # top 50%?
             termfreq_type = "quantile", 
             max_termfreq = 0.99, # 下位99%　→　top1%は除く
-            verbose = TRUE) %>%    
+            verbose = TRUE) |>    
   topfeatures(10)
 
 
 # 除去される語はなし？
-dfm_dat_s %>% 
+dfm_dat_s |> 
    dfm_trim(min_termfreq = 0.50,  
             termfreq_type = "quantile",
-            verbose = TRUE) %>% 
+            verbose = TRUE) |> 
   topfeatures(10)
 
-dfm_dat_s %>% 
+dfm_dat_s |> 
    dfm_trim(max_termfreq = 0.99,  
             termfreq_type = "quantile",
-            verbose = TRUE) %>% 
+            verbose = TRUE) |> 
   topfeatures(10)
  
 
@@ -362,11 +373,11 @@ dfm_dat_s %>%
 * デフォルトでは'target = 1L'となっているので，text1を分析するようになっている
 
 ```{r}
-textstat_keyness(dfm_dat_s) %>% 
+textstat_keyness(dfm_dat_s) |> 
 head(20)
 
 
-textstat_keyness(dfm_dat_s, target = 14L) %>% 
+textstat_keyness(dfm_dat_s, target = 14L) |> 
 head(20)
 
 ```
@@ -413,7 +424,7 @@ textplot_network(dfm_dat_col, min_freq = 0.95, edge_size = 5)
 
 
 # dfm_fcm <- 
-#   dfm_select(dfm_dat, feat) %>% 
+#   dfm_select(dfm_dat, feat) |> 
 #   fcm()
 # 
 # size <- 
@@ -441,9 +452,9 @@ set.seed(100)
 lda <- LDA(convert(dfm_fcm, to = "topicmodels"), k = 10)
 
 # 表示
-get_terms(lda, 10) %>% knitr::kable()
+get_terms(lda, 10) |> knitr::kable()
 
-# LDA_fit_10 <- convert(dfm_fcm, to = "topicmodels") %>% 
+# LDA_fit_10 <- convert(dfm_fcm, to = "topicmodels") |> 
 #     LDA(k = 10)
 ```
 
@@ -462,11 +473,11 @@ get_terms(lda, 10) %>% knitr::kable()
 ```{r eval=FALSE, include=FALSE}
 # 文単位に分割
 dat_txt_sent <- 
-  dat_txt %>% 
-  str_split(pattern = "(?<=。)") %>% 
+  dat_txt |> 
+  str_split(pattern = "(?<=。)") |> 
   unlist()
 
-dat_txt_sent %>% head()
+dat_txt_sent |> head()
 
 ```
 
@@ -475,5 +486,12 @@ dat_txt_sent %>% head()
 # 参考（その他）
 
 * [青空文庫からファイルを（半）自動ダウンロードでテキストマイニング（したい？）](http://rstudio-pubs-static.s3.amazonaws.com/3345_a88bc1244a08425d95772d0418f71048.html)
+
+# 他のテキスト取得方法
+## web上から
+
+```{r}
+
+```
 
 
