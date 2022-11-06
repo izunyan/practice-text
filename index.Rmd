@@ -490,8 +490,236 @@ dat_txt_sent |> head()
 # 他のテキスト取得方法
 ## web上から
 
+* 太宰治[『女生徒』](https://www.aozora.gr.jp/cards/000035/files/275_13903.html)XHTML版　青空文庫
+
+### webページをRに読み込み
+
 ```{r}
+library(rvest)
+
+txt <- read_html("https://www.aozora.gr.jp/cards/000035/files/275_13903.html")
+```
+
+### 文字情報を取得
+
+* `read_html()`で読み込んだオブジェクトから文字情報を取得
+* テキストデータがひとかたまりで取得され，そのまま表示させると膨大な出力になるので，`str_sub()`で一部を確認
+
+```{r}
+txt_html <- 
+  txt |> 
+  html_text()
+
+txt_html|> 
+  str_sub(1,500) # 1文字目から500文字目まで表示
+```
+
+
+### 加工
+#### 改行単位で区切る
+
+* `str_split()`を使って，指定した区切り（ここでは改行）ごとに分割する。改行部分は`\r\n`
+* 分割した結果はリストになっているので，リストの１要素目（"[[1]]"）を取り出す
+
+```{r}
+txt_split <- 
+  txt_html |> 
+  str_split("\r\n")
+
+# 分割結果がリストになっているので抽出
+txt_split <- 
+  txt_split[[1]]
+
+# 最初の8個の分割確認
+txt_split[1:8]
+
+# 元データ削除
+rm(txt)
+```
+
+
+
+
+
+#### 本文以外の情報を削除
+
+* 本文以外の情報が分割結果のどこにあるか手動で確認
+
+```{r}
+txt_split |>
+  as_tibble() |> 
+  slice_head(n = 10)
+
+
+txt_split |>
+  as_tibble() |> 
+  mutate(id = row_number()) |> # 行番号を示すためにid作成
+  slice_tail(n = 20)
+
+```
+
+* 本文部分だけに限定
+
+```{r}
+txt_split <- 
+  txt_split[7:101]
+```
+
+* 確認
+
+```{r}
+txt_split |>
+  as_tibble() |> 
+  slice_head(n = 3)
+
+
+txt_split |>
+  as_tibble() |> 
+  slice_tail(n = 3)
 
 ```
 
 
+
+#### ルビを取り除く
+
+* ただし，（　）の部分が全て削除になるので，読みがな以外の（　）を残す工夫が必要
+
+#### 確認
+```{r}
+# 除去前
+txt_split[1]
+
+
+```
+
+#### すべての（）を確認 
+```{r}
+yomigana <- 
+  txt_split |> 
+  str_extract_all("（[^）]+）") |> 
+  flatten_chr()
+
+yomigana |> 
+  head()
+
+# df_yomigana <- 
+#   yomigana |> 
+#   as_tibble()
+# 
+# writexl::write_xlsx(df_yomigana, "out/df_yomigana.xlsx")
+```
+
+#### 漢字があるかどうか確認
+```{r}
+yomigana |> 
+  str_subset("[一-龠]")
+```
+
+##### 個別に置換
+```{r}
+txt_split <- 
+  txt_split |> 
+  str_replace_all(c("（可哀想（かわいそう）" = "（可哀想",
+                    "（口だけでは、やれ古いのなんのって言うけれども、決して人生の先輩、老人、既婚の人たちを軽蔑なんかしていない。それどころか、いつでも二目（にもく）" =
+                      "（口だけでは、やれ古いのなんのって言うけれども、決して人生の先輩、老人、既婚の人たちを軽蔑なんかしていない。それどころか、いつでも二目"))
+  
+```
+
+* 確認
+
+```{r}
+yomigana <- 
+  txt_split |> 
+  str_extract_all("（[^）]+）") |> 
+  flatten_chr()
+
+yomigana |> 
+  str_subset("[一-龠]")
+```
+
+* 再度置換
+
+```{r}
+
+txt_split <- 
+  txt_split |> 
+  str_replace_all(c(
+"（口だけでは、やれ古いのなんのって言うけれども、決して人生の先輩、老人、既婚の人たちを軽蔑なんかしていない。それどころか、いつでも二目も三目（さんもく）" =
+"（口だけでは、やれ古いのなんのって言うけれども、決して人生の先輩、老人、既婚の人たちを軽蔑なんかしていない。それどころか、いつでも二目も三目")) 
+
+yomigana <- 
+  txt_split |> 
+  str_extract_all("（[^）]+）") |> 
+  flatten_chr()
+
+yomigana |> 
+  str_subset("[一-龠]")
+```
+
+#### 削除するよみがなの一覧を作成
+
+* dplyr::setdiffで削除する要素を指定
+
+```{r}
+
+kanji <-
+  yomigana |>
+  str_subset("[一-龠]")
+
+yomigana <- 
+  yomigana |> 
+  setdiff(kanji)
+  
+
+
+
+# 動かない
+# kanji <- 
+#   yomigana |> 
+#   str_subset("[一-龠]")
+# 
+# yomigana <- 
+#   yomigana |> 
+#   str_remove_all(all_of(kanji), "")
+```
+
+
+#### (未完成)漢字を含むもの以外を確認
+```{r}
+yomigana |> 
+  str_subset("[^一-龠]")
+
+```
+
+
+#### 句読点があるかどうか確認
+```{r}
+yomigana |> 
+  str_subset("[、。]")
+
+```
+
+#### (未完成)ひらがなのみを確認
+```{r}
+yomigana |> 
+  str_subset("（[ぁ-ん]+）")
+
+
+```
+
+
+#### 指定したよみがなを削除
+
+* 
+
+```{r}
+txt_split <- 
+  txt_split |> 
+  str_remove_all(str_c(yomigana, collapse = "|"))
+
+
+
+# 除去後
+txt_split[1]
+```
