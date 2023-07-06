@@ -33,6 +33,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 * 形態素 morpheme
 * 形態素解析 morphological analysis
 * 分かち書き word segmentation
+* レンマ化，見出し語化 lemmatization
 
 # 準備
 ## パッケージ読み込み
@@ -151,13 +152,36 @@ tokens(txt, remove_punct = TRUE, remove_numbers = TRUE)
 
 ## コーパスのトークン化
 ```{r}
-tok_dat <- 
-tokens(corp_dat, remove_punct = TRUE)
+tok_dat <-
+  tokens(corp_dat, remove_punct = TRUE)
 
 tok_dat |> head()
 ```
 
+### 個別のtextの確認
+```{r}
+set.seed(123)
+tokens_sample(tok_dat, size = 3)
+
+```
+
+
+
 ## 精緻なトークン化
+
+### 「っ」
+
+https://blog.koheiw.net/?p=1121
+
+```{r}
+tok_dat <- 
+  tokens_split(tok_dat, "っ", valuetype = "fixed", remove_separator = FALSE)
+
+tok_dat <- 
+  tokens_compound(tok_dat, list(c("^[一-龠]$", "^っ$")), valuetype = "regex", concatenator = "")
+```
+
+
 ### 共起関係把握
 ```{r}
 library(quanteda.textstats)
@@ -187,9 +211,9 @@ tok_dat <-
 tokens_compound(tok_dat, kana_col[kana_col$z > 3,], concatenator = "")
 
 
-# 漢字とカタカナと数字
+# 数字とカタカナと漢字
 any_col <- 
-tokens_select(tok_dat, "^[０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) |> 
+tokens_select(tok_dat, "^[0-9０-９ァ-ヶー一-龠]+$", valuetype = "regex", padding = TRUE) |> 
            textstat_collocations()
 
 any_col
@@ -216,6 +240,14 @@ tokens_compound(tok_dat, any_col[any_col$z > 3,], concatenator = "")
 # tokens_compound(corp_dat, kana_col[kana_col$z > 3,], concatenator = "")
 
 ```
+
+#### 確認
+```{r}
+textstat_collocations(corp_dat) |> head(100)
+
+```
+
+
 
 ### 指定した語をくっつける
 
@@ -252,10 +284,14 @@ kwic(tok_dat, pattern = "植木屋")
 
 https://tutorials.quanteda.io/multilingual/japanese/
 
+* stopwordsが削除される
+
 ```{r}
 tok_dat <- 
   tok_dat |> 
   tokens_remove(pattern = stopwords("ja", source = "marimo"), verbose = TRUE)
+
+tok_dat
 ```
 
 
@@ -278,8 +314,13 @@ dfm_dat
 topfeatures(dfm_dat, 10)
 
 # 下位20
-topfeatures(dfm_dat, decreasing = FALSE, 10)
+topfeatures(dfm_dat, decreasing = FALSE, 30)
 
+```
+
+### （ここでは不使用）表記ゆれを置き換える
+```{r eval=FALSE}
+dfm_replace()
 ```
 
 
@@ -415,12 +456,14 @@ textplot_wordcloud(dfm_dat_s2,
 ### 頻度の制限なし
 ```{r}
 
-
+feat <- names(topfeatures(dfm_dat_s, 100))
 
 dfm_fcm <- fcm(dfm_dat_s)
-feat <- names(topfeatures(dfm_fcm, 100))
 dfm_dat_col <- fcm_select(dfm_fcm, feat)
 textplot_network(dfm_dat_col, min_freq = 0.95, edge_size = 5)
+
+# topfeatures()はdfm形式のみに対応するため次の書き方はもう使わない
+# feat <- names(topfeatures(dfm_fcm, 100))
 
 
 # dfm_fcm <- 
@@ -437,8 +480,11 @@ textplot_network(dfm_dat_col, min_freq = 0.95, edge_size = 5)
 
 ### 高頻度語を除去
 ```{r}
+
+feat2 <- names(topfeatures(dfm_dat_s2, 100))
+
+
 dfm_fcm2 <- fcm(dfm_dat_s2)
-feat2 <- names(topfeatures(dfm_fcm2, 100))
 dfm_dat_col2 <- fcm_select(dfm_fcm2, feat2)
 textplot_network(dfm_dat_col2, min_freq = 0.95, edge_size = 5)
 ```
