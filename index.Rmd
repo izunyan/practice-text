@@ -169,7 +169,7 @@ tokens_sample(tok_dat, size = 3)
 
 ## 精緻なトークン化
 
-### 「っ」
+### 「っ」を漢字の後につける
 
 https://blog.koheiw.net/?p=1121
 
@@ -253,7 +253,7 @@ textstat_collocations(corp_dat) |> head(100)
 
 * [ドキュメント](https://quanteda.io/reference/tokens_compound.html)やヘルプのexample参照
 
-```{tokens_compound r}
+```{r}
 
 jisho <- 
   list(c("あ", "さ"),
@@ -302,8 +302,8 @@ tok_dat
 * 行が文書（document），列が特長（feature）となる行列
 
 ```{r}
-dfm_dat <- 
-dfm(tok_dat)
+dfm_dat <-
+  dfm(tok_dat)
 
 dfm_dat
 ```
@@ -318,9 +318,25 @@ topfeatures(dfm_dat, decreasing = FALSE, 30)
 
 ```
 
-### （ここでは不使用）表記ゆれを置き換える
+### （参考）表記ゆれを置き換える
 ```{r eval=FALSE}
-dfm_replace()
+txt <- c("てすと", "テスト", "test")
+
+txt_tok <- tokens(txt)
+txt_tok
+
+txt_tok <- 
+tokens_compound(txt_tok, list(c("て", "す", "と")),  concatenator = "") 
+txt_tok
+
+txt_dfm <- dfm(txt_tok)
+txt_dfm
+
+
+test <- c("てすと", "テスト", "test")
+lemma <- rep("テスト", length(test))
+txt_dfm <- dfm_replace(txt_dfm, test, lemma)
+txt_dfm
 ```
 
 
@@ -491,14 +507,16 @@ textplot_network(dfm_dat_col2, min_freq = 0.95, edge_size = 5)
 
 
 ## トピックモデル
-```{r eval=FALSE, include=FALSE}
+```{r}
 library(topicmodels)
 
-set.seed(100)
-lda <- LDA(convert(dfm_fcm, to = "topicmodels"), k = 10)
+set.seed(123)
+lda <- LDA(convert(dfm_dat_s, to = "topicmodels"), k = 10) # kにトピック数
 
 # 表示
-get_terms(lda, 10) |> knitr::kable()
+get_terms(lda, 10) |> #上位10単語
+  as_tibble() |> 
+  knitr::kable()
 
 # LDA_fit_10 <- convert(dfm_fcm, to = "topicmodels") |> 
 #     LDA(k = 10)
