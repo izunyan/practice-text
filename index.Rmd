@@ -22,10 +22,10 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 * [Text Mining with R: A Tidy Approach (Julia Silge and David Robinson)](https://www.tidytextmining.com/index.html)
 
 ## quanteda
+* [Rによる日本語のテキスト分析入門](https://github.com/koheiw/workshop-IJTA)
 * [クイック・スタートガイド](https://quanteda.io/articles/pkgdown/quickstart_ja.html)
 * [quanteda tutorials](https://tutorials.quanteda.io/multilingual/japanese/)
 * [経済学における量的テキスト分析入門](https://github.com/koheiw/workshop-JEAT)
-* [Rによる日本語のテキスト分析入門](https://github.com/koheiw/workshop-IJTA)
 * [フリーソフトによるデータ解析・マイニング](https://www.cis.doshisha.ac.jp/mjin/R/index.html)
 
 ## 用語
@@ -34,6 +34,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 * 形態素解析 morphological analysis
 * 分かち書き word segmentation
 * レンマ化，見出し語化 lemmatization
+* 係り受け dependencies
 
 # 準備
 ## パッケージ読み込み
@@ -130,6 +131,17 @@ corp_sect <- corpus_segment(corp_tagged, pattern = "##*")
 cbind(docvars(corp_sect), text = as.character(corp_sect))
 ```
 
+## 要約
+```{r}
+summary(corp_dat) |> 
+  head()
+```
+
+## 選択して表示
+```{r}
+
+corpus_subset(corp_dat, Text == "text5")
+```
 
 
 # トークン化
@@ -507,6 +519,9 @@ textplot_network(dfm_dat_col2, min_freq = 0.95, edge_size = 5)
 
 
 ## トピックモデル
+
+[Text Mining with R: A Tidy Approach - 6 Topic modeling](https://www.tidytextmining.com/topicmodeling.html)
+
 ```{r}
 library(topicmodels)
 
